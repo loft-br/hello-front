@@ -1,0 +1,42 @@
+name: Dependency Track
+on:
+  push:
+    branches:
+      - develop
+      - master
+      - main
+  pull_request:
+    branches:
+      - develop
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: k8s-runner
+    name: dependecy-track
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: steviewonder
+          password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+
+      - uses: actions/checkout@v3
+
+      - name: Download Syft
+        id: download-syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM
+        run: ${{ steps.download-syft.outputs.cmd }} dir:./ -o cyclonedx-xml > bom.xml
+
+      - name: Upload SBOM
+        uses: DependencyTrack/gh-upload-sbom@v1.0.0
+        with:
+          serverhostname: ${{ secrets.SECRET_OWASP_DT_HOST }}
+          apikey: ${{ secrets.SECRET_OWASP_DT_KEY }}
+          projectname: ${{ github.event.repository.name }}
+          projectversion: ${{ github.head_ref }}
+          autocreate: true
